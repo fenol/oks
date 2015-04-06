@@ -1,0 +1,98 @@
+__author__ = 'oks'
+
+import urllib2
+import datetime
+import os
+import pandas as pd
+
+
+def download_csv(id):
+    i = datetime.datetime.now()
+    current_time = "%s_%s_%s_%s_%s_%s" % (i.day, i.month, i.year, i.hour, i.minute, i.second)
+    url="http://www.star.nesdis.noaa.gov/smcd/emb/vci/gvix/G04/ts_L1/ByProvince/Mean/L1_Mean_UKR.R{0}.txt".format(id)
+    vhi_url = urllib2.urlopen(url)
+    out = open('vhi_id{0}_{1}.csv'.format(id, current_time), 'wb')
+    out.write(vhi_url.read())
+    out.close()
+    print "VHI {0} is downloaded...".format(id)
+
+
+def read_csv(path):
+    data = []
+    for filename in os.listdir(path):
+        df = pd.read_csv(filename, index_col=False, header=1)
+        data.append(df)
+    return data
+
+
+def order_data(data):
+    order = [24, 25, 5, 6, 27, 23, 26, 7, 11, 13, 14, 15, 16, 17, 18, 19, 21, 22, 8, 9, 10, 1, 3, 2, 4, 12, 20]
+    ordered_data = []
+    for n in order:
+        ordered_data.append(data[n-1])
+    return ordered_data
+
+
+def vhi_year_series(data, id, year):
+    id = id - 1
+    province = data[id]
+    list = province.VHI[(province['year']==year )& (province['year']!=0)].tolist()
+    print "VHI in province #{0} in {1}".format(id, year)
+    print ', '.join(str(x) for x in list)
+    print "max = ", max(list)
+    print "min = ", min(list)
+    print
+
+
+def vhi_series_extreme(data, id, percentage):
+    id = id - 1
+    province = data[id]
+    vhi_list = province.VHI.tolist()
+    print "VHI in province #{0}:".format(id)
+    print ', '.join(str(x) for x in vhi_list)
+    vhi_set = set(province.year[province['%Area_VHI_LESS_15'] < percentage].tolist())
+    print "Years, that was extremely dry over {0} percents of province #{1} area:".format(percentage, id)
+    print ', '.join(str(x) for x in vhi_set)
+    print
+
+
+
+def vhi_series_slight(data, id, percentage):
+    id = id - 1
+    province = data[id]
+    vhi_list = province.VHI.tolist()
+    print "VHI in province #{0}:".format(id)
+    print ', '.join(str(x) for x in vhi_list)
+    vhi_set = set(province.year[province['%Area_VHI_LESS_35'] < percentage].tolist())
+    print "Years, that was slightly dry over {0} percents of province #{1} area:".format(percentage, id)
+    print ', '.join(str(x) for x in vhi_set)
+    print
+
+def vhi_series_addition_task(data, id, percentage):
+    id = id - 1
+    province = data[id]
+    yearfrom = province[0:1].year[0]
+    yearto = province[-1:].year
+
+    list1=xrange(yearfrom, yearto+1)
+
+    list_out = []
+    for i in list1:
+        a = 0
+
+        list_weeks = province.week[province['year'] == i].tolist()
+        b = len(list_weeks)
+
+        list_vhi_less = province.week[(province['year'] == i) &(province['VHI'] < percentage)].tolist()
+        a = len(list_vhi_less)
+
+        #print str(i) + ' ' + str(b) + ' ' + str(a)
+
+        if a > (0.3*b) :
+            list_out.append(i)
+    print list_out
+
+
+os.chdir('VHI')
+data = order_data(read_csv(os.getcwd()))
+vhi_series_addition_task(data, 1, 40.00)
